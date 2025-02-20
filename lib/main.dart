@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
 
 void main() {
   runApp(SmartHomeApp());
@@ -100,13 +102,24 @@ class _HomeScreenState extends State<HomeScreen> {
     "COFFEE": false,
     "CURTAINS": false,
   };
-  
-  double lightIntensity = 50.0;
 
-  void toggleButtonState(String label) {
+  double lightIntensity = 50.0;
+  late MQTTService mqttService;
+
+  @override
+  void initState() {
+    super.initState();
+    mqttService = MQTTService();
+    mqttService.connect();
+  }
+
+  void toggleLight() {
     setState(() {
-      buttonStates[label] = !(buttonStates[label] ?? false);
+      buttonStates["LIGHTING"] = !buttonStates["LIGHTING"]!;
     });
+
+    String state = buttonStates["LIGHTING"]! ? "on" : "off";
+    mqttService.sendMqttMessage('{ "state": "$state" }');
   }
 
   void showLightIntensityDialog() {
@@ -131,6 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         lightIntensity = value;
                       });
                       setState(() {});
+                      mqttService.sendMqttMessage('{ "state": "brightness:$value" }');
                     },
                   ),
                 ],
@@ -186,12 +200,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   return GestureDetector(
                     onTap: () {
                       if (label == "LIGHTING") {
-                        if (!buttonStates[label]!) { // Only show slider when turning ON
+                        if (!buttonStates[label]!) {
                           showLightIntensityDialog();
                         }
-                        toggleButtonState(label);
+                        toggleLight();
                       } else {
-                        toggleButtonState(label);
+                        setState(() {
+                          buttonStates[label] = !buttonStates[label]!;
+                        });
                       }
                     },
                     child: Container(
@@ -224,5 +240,27 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+}
+
+class MQTTService {
+  final MqttServerClient client =
+      MqttServerClient('192.168.1.50', 'flutter_client');
+
+  Future<void> connect() async {
+    client.port = 1883;
+    client.keepAlivePeriod = 60;
+    try {
+      await client.connect();
+      print('✅ Connected to MQTT broker');
+    } catch (e) {
+      print('❌ MQTT connection failed: $e');
+    }
+  }
+
+  void sendMqttMessage(String payload) {
+    final builder = MqttClientPayloadBuilder();
+    builder.addString(payload);
+    client.publishMessage('tapo/bulb/set', MqttQos.atLeastOnce, builder.payload!);
   }
 }

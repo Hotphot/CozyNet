@@ -47,6 +47,3 @@ app.*.map.json
 # Ignore everything by default
 *
 
-# Allow only the lib/ folder and .gitignore itself
-!lib/
-!.gitignore
