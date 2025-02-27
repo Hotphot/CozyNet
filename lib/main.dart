@@ -216,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class MQTTService {
-  String mqttBroker = '192.168.1.9';
+  String mqttBroker = 'Enter your mqttbroker IP';
 
   late MqttServerClient client;
 
